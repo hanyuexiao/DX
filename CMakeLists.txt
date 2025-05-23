@@ -11,6 +11,16 @@ add_executable(DX WIN32
         Graphic.h
         common.cpp
         main.cpp
+        CTransform.cpp
+        CTransform.h
+        CGameObject.cpp
+        CGameObject.h
+        CCamera.cpp
+        CCamera.h
+        Model.cpp
+        Model.h
+        Scene.cpp
+        Scene.h
 )
 
 # --- 指定包含目录 (头文件搜索路径) ---
