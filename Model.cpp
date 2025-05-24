@@ -1,203 +1,450 @@
-//
-// Created by admin on 2025/5/22.
-//
-
 #include "Model.h"
+// Graphic.h 已经在 Model.h 中包含
 
-Model::Model(const string &name) :
-                GameObject{name},
-                m_pMesh{nullptr},
-                m_dwNumMaterials{0}
-                {
+// Assimp 相关头文件
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
+#include <string> // 用于 std::to_string, std::string
+#include <vector> // 用于 std::vector
+#include <locale> // for tolower
 
+// 定义FBX顶点格式的FVF (确保与 Model.h 中的 FBXVertex 结构匹配)
+#define D3DFVF_FBXVERTEX (D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX1)
+
+// 构造函数
+Model::Model() :
+        GameObject("Model"), // 调用基类 GameObject 的构造函数，可以提供一个默认名字
+        m_modelType(ModelType::NONE),
+        m_filePath(""),
+        m_pMesh(nullptr),
+        m_dwFBXVertexFVF(D3DFVF_FBXVERTEX),
+        m_dwNumMaterials(0) {
+    m_vSubMeshes.clear();
+    m_vMaterials.clear();
+    m_vTextures.clear(); // m_vTextures 是 std::vector<CGraphic::MyImageInfo>
 }
 
+// 析构函数
 Model::~Model() {
     ReleaseResources();
 }
 
+// 释放所有已分配的资源
 void Model::ReleaseResources() {
-    for (auto &textures : m_vTextures) {
-        if(textures){
-            textures->Release();
-            textures = nullptr;
-        }
-    }
-    m_vTextures.clear();
 
-    m_vMaterials.clear();
-
-    if(m_pMesh){
+    if (m_pMesh) {
         m_pMesh->Release();
         m_pMesh = nullptr;
     }
+
+    for (auto& subMesh : m_vSubMeshes) {
+        if (subMesh.vb) {
+            subMesh.vb->Release();
+            subMesh.vb = nullptr;
+        }
+        if (subMesh.ib) {
+            subMesh.ib->Release();
+            subMesh.ib = nullptr;
+        }
+    }
+    m_vSubMeshes.clear();
+
+    // 释放 MyImageInfo 中的纹理指针
+    for (auto& imageInfo : m_vTextures) {
+        if (imageInfo.pTex) { // 注意这里是 pTex
+            imageInfo.pTex->Release();
+            imageInfo.pTex = nullptr;
+        }
+    }
+    m_vTextures.clear();
+    m_vMaterials.clear();
+
     m_dwNumMaterials = 0;
+    m_modelType = ModelType::NONE;
+    m_filePath = "";
 }
 
-bool Model::LoadModelFromFile(const std::string& modelFilePath) {
-    this->filePath = modelFilePath; // 保存文件路径
-    ReleaseResources(); // 先释放旧资源，这个函数我们之前是完整定义的
+// 从 .X 文件加载模型
+bool Model::LoadXModelFromFile(const std::string& modelFilePath) {
+    ReleaseResources();
+    m_filePath = modelFilePath;
+    m_modelType = ModelType::NONE;
 
     LPDIRECT3DDEVICE9 pd3dDevice = CGraphic::GetSingleObjPtr()->m_pDevice;
     if (!pd3dDevice) {
-        // OutputDebugString("Model::LoadModelFromFile - D3D Device is null.\n");
+        OutputDebugStringA("LoadXModelFromFile Error: No D3D Device found.\n");
         return false;
     }
 
-    ID3DXBuffer* pAdjacencyBuffer = nullptr;
-    ID3DXBuffer* pMaterialBuffer = nullptr; // 用来获取材质和纹理信息
-
+    LPD3DXBUFFER pD3DXMtrlBuffer = nullptr;
     HRESULT hr = D3DXLoadMeshFromX(
             modelFilePath.c_str(),
-            D3DXMESH_MANAGED,
+            D3DXMESH_SYSTEMMEM,
             pd3dDevice,
-            &pAdjacencyBuffer,
-            &pMaterialBuffer,  // 我们现在要用这个 buffer 了！
-            nullptr,
+            NULL,
+            &pD3DXMtrlBuffer,
+            NULL,
             &m_dwNumMaterials,
             &m_pMesh
     );
 
     if (FAILED(hr)) {
-        // TCHAR errorMsg[256];
-        // _stprintf_s(errorMsg, _T("Model::LoadModelFromFile - Failed to load mesh '%s'. HRESULT: 0x%08X\n"), modelFilePath.c_str(), hr);
-        // OutputDebugString(errorMsg);
-        if (pAdjacencyBuffer) pAdjacencyBuffer->Release();
-        if (pMaterialBuffer) pMaterialBuffer->Release();
-        m_pMesh = nullptr;
-        m_dwNumMaterials = 0;
+        std::string errorMsg = "Failed to load .X model: " + modelFilePath + ". HRESULT: " + std::to_string(hr) + "\n";
+        OutputDebugStringA(errorMsg.c_str());
+        if (pD3DXMtrlBuffer) pD3DXMtrlBuffer->Release();
         return false;
     }
 
-    // === 开始处理材质和纹理 ===
-    if (pMaterialBuffer != nullptr && m_dwNumMaterials > 0) {
-        // D3DXMATERIAL 结构包含了 D3DMATERIAL9 和一个指向纹理文件名的指针
-        D3DXMATERIAL* d3dxMaterials = (D3DXMATERIAL*)pMaterialBuffer->GetBufferPointer();
-
+    if (m_dwNumMaterials == 0 && m_pMesh != nullptr) {
+        m_dwNumMaterials = 1;
+        D3DMATERIAL9 defaultMat;
+        ZeroMemory(&defaultMat, sizeof(D3DMATERIAL9));
+        defaultMat.Diffuse.r = defaultMat.Ambient.r = 0.8f;
+        defaultMat.Diffuse.g = defaultMat.Ambient.g = 0.8f;
+        defaultMat.Diffuse.b = defaultMat.Ambient.b = 0.8f;
+        defaultMat.Diffuse.a = defaultMat.Ambient.a = 1.0f;
+        m_vMaterials.push_back(defaultMat);
+        m_vTextures.resize(1); // 创建一个默认的 MyImageInfo，其 pTex 将为 nullptr
+    }
+    else if (pD3DXMtrlBuffer != nullptr && m_dwNumMaterials > 0) {
+        D3DXMATERIAL* d3dxMaterials = (D3DXMATERIAL*)pD3DXMtrlBuffer->GetBufferPointer();
         m_vMaterials.resize(m_dwNumMaterials);
-        m_vTextures.resize(m_dwNumMaterials); // 每个材质对应一个纹理槽，可能为空
+        m_vTextures.resize(m_dwNumMaterials); // 为每个材质创建一个 MyImageInfo 对象
 
-        for (DWORD i = 0; i < m_dwNumMaterials; ++i) {
-            // 1. 复制材质属性 (D3DMATERIAL9)
+        std::string modelDir = "";
+        size_t lastSlash = modelFilePath.find_last_of("/\\");
+        if (lastSlash != std::string::npos) {
+            modelDir = modelFilePath.substr(0, lastSlash + 1);
+        }
+
+        for (DWORD i = 0; i < m_dwNumMaterials; i++) {
             m_vMaterials[i] = d3dxMaterials[i].MatD3D;
-
-            // 2. 设置环境光反射
-            //    .x 文件中的环境光通常未设置或很暗，用漫反射颜色填充是个好习惯
             m_vMaterials[i].Ambient = m_vMaterials[i].Diffuse;
 
-            // 3. 加载纹理 (如果材质指定了纹理文件名)
-            m_vTextures[i] = nullptr; // 先置空
-            if (d3dxMaterials[i].pTextureFilename != nullptr &&
-                strlen(d3dxMaterials[i].pTextureFilename) > 0) {
-
-                std::string textureFilenameStr = d3dxMaterials[i].pTextureFilename;
-                std::string texturePath = "";
-
-                // 构造纹理的完整路径 (假设纹理和模型在同一目录或相对路径)
-                // 查找 modelFilePath 中最后一个路径分隔符
-                size_t lastSlashPos = modelFilePath.find_last_of("/\\");
-                if (lastSlashPos != std::string::npos) {
-                    // 如果找到了，提取目录部分并拼接纹理文件名
-                    texturePath = modelFilePath.substr(0, lastSlashPos + 1) + textureFilenameStr;
-                } else {
-                    // 如果 modelFilePath 没有路径分隔符 (例如 "dog.x")，
-                    // 则认为纹理文件和模型文件都在当前工作目录下
-                    texturePath = textureFilenameStr;
-                }
-
-                // 使用 CGraphic 的 LoadTex 方法加载纹理
-                MyImageInfo tempImageInfo;
-                ZeroMemory(&tempImageInfo, sizeof(MyImageInfo));
-
-                // 你的 LoadTex 接受 LPCTSTR。如果你的项目是UNICODE (TCHAR 是 wchar_t)，
-                // 而 texturePath 是 std::string，这里需要转换。
-                // 假设你的 TString 定义与 std::string 兼容或项目为非 UNICODE。
-                if (SUCCEEDED(CGraphic::GetSingleObjPtr()->LoadTex(texturePath.c_str(), tempImageInfo))) {
-                    m_vTextures[i] = tempImageInfo.pTex; // pTex 是 LPDIRECT3DTEXTURE9
-                } else {
-                    // TCHAR errorMsg[512];
-                    // _stprintf_s(errorMsg, _T("Model::LoadModelFromFile - Failed to load texture '%s' for mesh '%s'.\n"), texturePath.c_str(), modelFilePath.c_str());
-                    // OutputDebugString(errorMsg);
-                    m_vTextures[i] = nullptr;
+            if (d3dxMaterials[i].pTextureFilename && strlen(d3dxMaterials[i].pTextureFilename) > 0) {
+                std::string texturePathStr = modelDir + d3dxMaterials[i].pTextureFilename;
+                // 调用 LoadTex，第二个参数是 MyImageInfo&
+                if (!CGraphic::GetSingleObjPtr()->LoadTex(texturePathStr.c_str(), m_vTextures[i])) {
+                    if (!CGraphic::GetSingleObjPtr()->LoadTex(d3dxMaterials[i].pTextureFilename, m_vTextures[i])) {
+                        std::string texErrorMsg = "Warning: Failed to load texture for .X model: " + std::string(d3dxMaterials[i].pTextureFilename) + "\n";
+                        OutputDebugStringA(texErrorMsg.c_str());
+                    }
                 }
             }
         }
-    } else if (m_pMesh != nullptr && m_dwNumMaterials == 0) {
-        // 网格加载成功，但是没有材质信息
-        // OutputDebugString(_T("Model::LoadModelFromFile - Mesh loaded but no material info in .x file.\n"));
     }
 
-    // 释放临时缓冲区
-    if (pAdjacencyBuffer) pAdjacencyBuffer->Release();
-    if (pMaterialBuffer) pMaterialBuffer->Release(); // 材质缓冲区使用完毕后必须释放
+    if (pD3DXMtrlBuffer) {
+        pD3DXMtrlBuffer->Release();
+    }
 
+    if (m_pMesh) {
+        m_modelType = ModelType::X_MODEL;
+        return true;
+    }
+    return false;
+}
+
+// 从 .FBX 文件加载模型
+bool Model::LoadFBXModelFromFile(const std::string& modelFilePath) {
+    ReleaseResources();
+    m_filePath = modelFilePath;
+    m_modelType = ModelType::NONE;
+
+    LPDIRECT3DDEVICE9 pd3dDevice = CGraphic::GetSingleObjPtr()->m_pDevice;
+    if (!pd3dDevice) {
+        OutputDebugStringA("LoadFBXModelFromFile Error: No D3D Device found.\n");
+        return false;
+    }
+
+    Assimp::Importer importer;
+    unsigned int assimpFlags = aiProcess_Triangulate | aiProcess_ConvertToLeftHanded |
+                               aiProcess_GenSmoothNormals | aiProcess_CalcTangentSpace |
+                               aiProcess_JoinIdenticalVertices | aiProcess_ValidateDataStructure |
+                               aiProcess_ImproveCacheLocality | aiProcess_RemoveRedundantMaterials |
+                               aiProcess_SortByPType | aiProcess_FindInvalidData | aiProcess_FlipUVs;
+
+    const aiScene* pScene = importer.ReadFile(modelFilePath.c_str(), assimpFlags);
+
+    if (!pScene || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !pScene->mRootNode) {
+        std::string errorMsg = "ASSIMP Error loading FBX model: " + std::string(importer.GetErrorString()) + "\n";
+        OutputDebugStringA(errorMsg.c_str());
+        return false;
+    }
+
+    m_dwNumMaterials = pScene->mNumMaterials;
+    if (m_dwNumMaterials > 0) {
+        m_vMaterials.resize(m_dwNumMaterials);
+        m_vTextures.resize(m_dwNumMaterials); // 创建 MyImageInfo 对象
+
+        std::string modelDir = "";
+        size_t lastSlash = modelFilePath.find_last_of("/\\");
+        if (lastSlash != std::string::npos) {
+            modelDir = modelFilePath.substr(0, lastSlash + 1);
+        }
+
+        for (unsigned int i = 0; i < m_dwNumMaterials; ++i) {
+            aiMaterial* pAiMaterial = pScene->mMaterials[i];
+            D3DMATERIAL9 d3dMaterial;
+            ZeroMemory(&d3dMaterial, sizeof(D3DMATERIAL9));
+            aiColor4D color;
+
+            if (aiGetMaterialColor(pAiMaterial, AI_MATKEY_COLOR_DIFFUSE, &color) == AI_SUCCESS) {
+                d3dMaterial.Diffuse = { color.r, color.g, color.b, color.a };
+            }
+            else { d3dMaterial.Diffuse = { 1.0f, 1.0f, 1.0f, 1.0f }; }
+            if (aiGetMaterialColor(pAiMaterial, AI_MATKEY_COLOR_AMBIENT, &color) == AI_SUCCESS) {
+                d3dMaterial.Ambient = { color.r, color.g, color.b, color.a };
+            }
+            else { d3dMaterial.Ambient = d3dMaterial.Diffuse; }
+            if (aiGetMaterialColor(pAiMaterial, AI_MATKEY_COLOR_SPECULAR, &color) == AI_SUCCESS) {
+                d3dMaterial.Specular = { color.r, color.g, color.b, color.a };
+            }
+            else { d3dMaterial.Specular = { 0.5f, 0.5f, 0.5f, 1.0f }; }
+            if (aiGetMaterialColor(pAiMaterial, AI_MATKEY_COLOR_EMISSIVE, &color) == AI_SUCCESS) {
+                d3dMaterial.Emissive = { color.r, color.g, color.b, color.a };
+            }
+            else { d3dMaterial.Emissive = { 0.0f, 0.0f, 0.0f, 1.0f }; }
+            float shininessFactor = 0.0f; unsigned int max = 1;
+            if (aiGetMaterialFloatArray(pAiMaterial, AI_MATKEY_SHININESS, &shininessFactor, &max) == AI_SUCCESS) {
+                d3dMaterial.Power = shininessFactor;
+            }
+            else { d3dMaterial.Power = 32.0f; }
+            if (d3dMaterial.Power <= 0.0f && (d3dMaterial.Specular.r > 0.0f || d3dMaterial.Specular.g > 0.0f || d3dMaterial.Specular.b > 0.0f)) {
+                d3dMaterial.Power = 32.0f;
+            }
+            m_vMaterials[i] = d3dMaterial;
+
+            aiString aiTexPath;
+            if (pAiMaterial->GetTexture(aiTextureType_DIFFUSE, 0, &aiTexPath) == AI_SUCCESS) {
+                std::string textureFilename = aiTexPath.C_Str();
+                if (!textureFilename.empty()) {
+                    std::string fullTexturePath = modelDir + textureFilename;
+                    bool isAbsolutePath = (textureFilename.length() > 1 && textureFilename[1] == ':') || (textureFilename.length() > 0 && (textureFilename[0] == '/' || textureFilename[0] == '\\'));
+                    if (isAbsolutePath) {
+                        if (!CGraphic::GetSingleObjPtr()->LoadTex(textureFilename.c_str(), m_vTextures[i])) {
+                            std::string texError = "Warning: Failed to load absolute texture path for FBX: " + textureFilename + "\n";
+                            OutputDebugStringA(texError.c_str());
+                        }
+                    }
+                    else {
+                        if (!CGraphic::GetSingleObjPtr()->LoadTex(fullTexturePath.c_str(), m_vTextures[i])) {
+                            if (!CGraphic::GetSingleObjPtr()->LoadTex(textureFilename.c_str(), m_vTextures[i])) {
+                                std::string texError = "Warning: Failed to load texture for FBX (tried relative and direct): " + textureFilename + "\n";
+                                OutputDebugStringA(texError.c_str());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        m_dwNumMaterials = 1;
+        m_vMaterials.resize(1);
+        m_vTextures.resize(1);
+        ZeroMemory(&m_vMaterials[0], sizeof(D3DMATERIAL9));
+        m_vMaterials[0].Diffuse = { 0.8f, 0.8f, 0.8f, 1.0f };
+        m_vMaterials[0].Ambient = { 0.8f, 0.8f, 0.8f, 1.0f };
+        m_vMaterials[0].Specular = { 0.2f, 0.2f, 0.2f, 1.0f };
+        m_vMaterials[0].Power = 32.0f;
+    }
+
+    m_vSubMeshes.reserve(pScene->mNumMeshes);
+    for (unsigned int i = 0; i < pScene->mNumMeshes; ++i) {
+        aiMesh* pAiMesh = pScene->mMeshes[i];
+        if (pAiMesh->mNumVertices == 0 || pAiMesh->mNumFaces == 0) continue;
+
+        SubMesh currentSubMesh;
+        currentSubMesh.numVertices = pAiMesh->mNumVertices;
+        currentSubMesh.numFaces = pAiMesh->mNumFaces;
+        currentSubMesh.materialIndex = pAiMesh->mMaterialIndex;
+
+        if (pScene->mNumMaterials == 0 && m_dwNumMaterials == 1) {
+            currentSubMesh.materialIndex = 0;
+        }
+        if (currentSubMesh.materialIndex >= m_dwNumMaterials) {
+            std::string matError = "Warning: Mesh material index " + std::to_string(currentSubMesh.materialIndex) +
+                                   " is out of bounds (" + std::to_string(m_dwNumMaterials) + "). Using material 0.\n";
+            OutputDebugStringA(matError.c_str());
+            currentSubMesh.materialIndex = (m_dwNumMaterials > 0) ? 0 : 0;
+            if (m_dwNumMaterials == 0) {
+                OutputDebugStringA("Error: No materials loaded, cannot assign material to submesh. Skipping submesh.\n");
+                continue;
+            }
+        }
+
+        std::vector<FBXVertex> vertices;
+        vertices.reserve(pAiMesh->mNumVertices);
+        for (unsigned int v = 0; v < pAiMesh->mNumVertices; ++v) {
+            FBXVertex vertex;
+            vertex.position = { pAiMesh->mVertices[v].x, pAiMesh->mVertices[v].y, pAiMesh->mVertices[v].z };
+            if (pAiMesh->HasNormals()) {
+                vertex.normal = { pAiMesh->mNormals[v].x, pAiMesh->mNormals[v].y, pAiMesh->mNormals[v].z };
+            }
+            else { vertex.normal = { 0.0f, 1.0f, 0.0f }; }
+            if (pAiMesh->HasTextureCoords(0)) {
+                vertex.texcoord = { pAiMesh->mTextureCoords[0][v].x, pAiMesh->mTextureCoords[0][v].y };
+            }
+            else { vertex.texcoord = { 0.0f, 0.0f }; }
+            vertices.push_back(vertex);
+        }
+
+        HRESULT hr = pd3dDevice->CreateVertexBuffer(
+                vertices.size() * sizeof(FBXVertex), D3DUSAGE_WRITEONLY,
+                m_dwFBXVertexFVF, D3DPOOL_MANAGED, &currentSubMesh.vb, NULL);
+        if (FAILED(hr)) {
+            std::string vbError = "Failed to create Vertex Buffer for SubMesh " + std::to_string(i) + ". HRESULT: " + std::to_string(hr) + "\n";
+            OutputDebugStringA(vbError.c_str());
+            continue;
+        }
+        VOID* pVBData;
+        if (SUCCEEDED(currentSubMesh.vb->Lock(0, 0, &pVBData, 0))) {
+            memcpy(pVBData, vertices.data(), vertices.size() * sizeof(FBXVertex));
+            currentSubMesh.vb->Unlock();
+        }
+        else {
+            std::string lockError = "Failed to lock Vertex Buffer for SubMesh " + std::to_string(i) + "\n";
+            OutputDebugStringA(lockError.c_str());
+            currentSubMesh.vb->Release(); currentSubMesh.vb = nullptr;
+            continue;
+        }
+
+        std::vector<DWORD> indices;
+        indices.reserve(pAiMesh->mNumFaces * 3);
+        for (unsigned int f = 0; f < pAiMesh->mNumFaces; ++f) {
+            const aiFace& face = pAiMesh->mFaces[f];
+            if (face.mNumIndices != 3) continue;
+            indices.push_back(face.mIndices[0]);
+            indices.push_back(face.mIndices[1]);
+            indices.push_back(face.mIndices[2]);
+        }
+        if (indices.empty() && pAiMesh->mNumFaces > 0) {
+            std::string idxError = "Warning: SubMesh " + std::to_string(i) + " has faces but no indices were processed.\n";
+            OutputDebugStringA(idxError.c_str());
+            if (currentSubMesh.vb) { currentSubMesh.vb->Release(); currentSubMesh.vb = nullptr; }
+            continue;
+        }
+        if (indices.empty()) {
+            if (currentSubMesh.vb) { currentSubMesh.vb->Release(); currentSubMesh.vb = nullptr; }
+            continue;
+        }
+
+        hr = pd3dDevice->CreateIndexBuffer(
+                indices.size() * sizeof(DWORD), D3DUSAGE_WRITEONLY,
+                D3DFMT_INDEX32, D3DPOOL_MANAGED, &currentSubMesh.ib, NULL);
+        if (FAILED(hr)) {
+            std::string ibError = "Failed to create Index Buffer for SubMesh " + std::to_string(i) + ". HRESULT: " + std::to_string(hr) + "\n";
+            OutputDebugStringA(ibError.c_str());
+            if (currentSubMesh.vb) { currentSubMesh.vb->Release(); currentSubMesh.vb = nullptr; }
+            continue;
+        }
+        VOID* pIBData;
+        if (SUCCEEDED(currentSubMesh.ib->Lock(0, 0, &pIBData, 0))) {
+            memcpy(pIBData, indices.data(), indices.size() * sizeof(DWORD));
+            currentSubMesh.ib->Unlock();
+        }
+        else {
+            std::string lockError = "Failed to lock Index Buffer for SubMesh " + std::to_string(i) + "\n";
+            OutputDebugStringA(lockError.c_str());
+            if (currentSubMesh.vb) { currentSubMesh.vb->Release(); currentSubMesh.vb = nullptr; }
+            currentSubMesh.ib->Release(); currentSubMesh.ib = nullptr;
+            continue;
+        }
+        m_vSubMeshes.push_back(currentSubMesh);
+    }
+
+    if (m_vSubMeshes.empty() && pScene->mNumMeshes > 0) {
+        OutputDebugStringA("Warning: FBX scene has meshes, but no submeshes were processed successfully.\n");
+    }
+    m_modelType = ModelType::FBX_MODEL;
     return true;
 }
 
+// 通用加载函数
+bool Model::LoadGenericModel(const std::string& modelFilePath) {
+    std::string extension = "";
+    size_t dotPos = modelFilePath.find_last_of('.');
+    if (dotPos != std::string::npos && dotPos + 1 < modelFilePath.length()) {
+        extension = modelFilePath.substr(dotPos + 1);
+    }
+    std::string lower_extension = extension;
+    for (char& c : lower_extension) {
+        c = static_cast<char>(tolower(c)); // 使用 tolower 需要 #include <locale> 或 <cctype>
+    }
 
-void Model::Render() {
-    LPDIRECT3DDEVICE9 pd3dDevice = CGraphic::GetSingleObjPtr()->m_pDevice;
-    if (!pd3dDevice || !m_pMesh) {
+    if (lower_extension == "x") {
+        return LoadXModelFromFile(modelFilePath);
+    }
+    else if (lower_extension == "fbx") {
+        return LoadFBXModelFromFile(modelFilePath);
+    }
+    std::string extError = "Unsupported model format or unknown extension: " + modelFilePath + " (ext: " + extension + ")\n";
+    OutputDebugStringA(extError.c_str());
+    return false;
+}
+
+// 渲染函数
+void Model::Render(LPDIRECT3DDEVICE9 pd3dDevice) {
+    if (!pd3dDevice) { // GameObject 中的 transform 是对象实例，通常不需要检查是否为 nullptr
+        OutputDebugStringA("Model::Render Error: No D3D Device.\n");
         return;
     }
-// 1. 获取世界矩阵的引用（假设 GetWorldMatrix 返回 D3DXMATRIX&）
-    D3DXMATRIX worldMatrix = transform.GetWorldMatrix();
 
-// 2. 调用 D3DXMatrixIdentity 初始化该矩阵
-    D3DXMatrixIdentity(&worldMatrix); // 正确：操作的是持久对象
+    // 直接访问继承自 GameObject 的 transform 成员对象，并调用其 GetWorldMatrix 方法
+    D3DXMATRIXA16 matWorld = transform.GetWorldMatrix();
+    pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);
 
-// 3. 传递初始化后的矩阵地址给 SetTransform
-    pd3dDevice->SetTransform(D3DTS_WORLD, &worldMatrix);
-
-    // === 开始应用每个子集的材质和纹理 ===
-    if (m_dwNumMaterials > 0) {
-        for (DWORD i = 0; i < m_dwNumMaterials; ++i) {
-            // 设置当前子集的材质
-            // 确保 m_vMaterials 至少有 i+1 个元素
+    if (m_modelType == ModelType::X_MODEL && m_pMesh) {
+        for (DWORD i = 0; i < m_dwNumMaterials; i++) {
             if (i < m_vMaterials.size()) {
                 pd3dDevice->SetMaterial(&m_vMaterials[i]);
-            } else {
-                // 如果 m_vMaterials 不足，可能需要设置一个默认材质或发出警告
-                // （理论上 m_vMaterials.size() 应该等于 m_dwNumMaterials）
-                D3DMATERIAL9 defaultMat; // 备用默认材质
-                ZeroMemory(&defaultMat, sizeof(D3DMATERIAL9));
-                defaultMat.Diffuse.r = defaultMat.Ambient.r = 0.7f;
-                defaultMat.Diffuse.g = defaultMat.Ambient.g = 0.7f;
-                defaultMat.Diffuse.b = defaultMat.Ambient.b = 0.7f;
-                defaultMat.Diffuse.a = defaultMat.Ambient.a = 1.0f;
-                pd3dDevice->SetMaterial(&defaultMat);
             }
-
-            // 设置当前子集的纹理 (如果存在)
-            // 确保 m_vTextures 至少有 i+1 个元素
-            if (i < m_vTextures.size()) {
-                pd3dDevice->SetTexture(0, m_vTextures[i]); // 如果 m_vTextures[i] 为 nullptr，则禁用纹理
-            } else {
-                pd3dDevice->SetTexture(0, nullptr); // 确保禁用纹理
+            else if (!m_vMaterials.empty()) {
+                pd3dDevice->SetMaterial(&m_vMaterials[0]);
             }
-
-            m_pMesh->DrawSubset(i); // 绘制网格的当前子集
+            // 使用 MyImageInfo 中的 pTex
+            if (i < m_vTextures.size() && m_vTextures[i].pTex != nullptr) {
+                pd3dDevice->SetTexture(0, m_vTextures[i].pTex);
+            }
+            else {
+                pd3dDevice->SetTexture(0, nullptr);
+            }
+            m_pMesh->DrawSubset(i);
         }
-    } else if (m_pMesh) {
-        // 如果没有材质信息 (m_dwNumMaterials == 0) 但网格存在，
-        // 尝试将整个网格作为单个子集(0)绘制。
-        // 此时需要确保设置一个默认材质和禁用纹理。
-        D3DMATERIAL9 defaultMat;
-        ZeroMemory(&defaultMat, sizeof(D3DMATERIAL9));
-        defaultMat.Diffuse.r = defaultMat.Ambient.r = 0.7f;
-        defaultMat.Diffuse.g = defaultMat.Ambient.g = 0.7f;
-        defaultMat.Diffuse.b = defaultMat.Ambient.b = 0.7f;
-        defaultMat.Diffuse.a = defaultMat.Ambient.a = 1.0f;
-        pd3dDevice->SetMaterial(&defaultMat);
-        pd3dDevice->SetTexture(0, nullptr);
-        m_pMesh->DrawSubset(0);
+    }
+    else if (m_modelType == ModelType::FBX_MODEL && !m_vSubMeshes.empty()) {
+        for (const auto& subMesh : m_vSubMeshes) {
+            if (subMesh.vb && subMesh.ib && subMesh.numFaces > 0) {
+                pd3dDevice->SetStreamSource(0, subMesh.vb, 0, sizeof(FBXVertex));
+                pd3dDevice->SetFVF(m_dwFBXVertexFVF);
+                pd3dDevice->SetIndices(subMesh.ib);
+
+                UINT matIdxToUse = subMesh.materialIndex;
+                if (matIdxToUse >= m_dwNumMaterials) { // 确保索引在范围内
+                    matIdxToUse = (m_dwNumMaterials > 0) ? 0 : 0; // 回退到第一个材质
+                    if (m_dwNumMaterials == 0) {
+                        pd3dDevice->SetTexture(0, nullptr); // 清除纹理
+                        pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, subMesh.numVertices, 0, subMesh.numFaces);
+                        continue; // 如果没有材质，则不设置材质，直接绘制
+                    }
+                }
+                // 只有在 matIdxToUse 有效且 m_vMaterials 不为空时才设置材质
+                if (matIdxToUse < m_vMaterials.size()) {
+                    pd3dDevice->SetMaterial(&m_vMaterials[matIdxToUse]);
+                }
+
+                // 使用 MyImageInfo 中的 pTex
+                if (matIdxToUse < m_vTextures.size() && m_vTextures[matIdxToUse].pTex != nullptr) {
+                    pd3dDevice->SetTexture(0, m_vTextures[matIdxToUse].pTex);
+                }
+                else {
+                    pd3dDevice->SetTexture(0, nullptr);
+                }
+                pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, 0, 0, subMesh.numVertices, 0, subMesh.numFaces);
+            }
+        }
     }
 }
-
-
-void Model::Update(float deltaTime) {
-    GameObject::Update(deltaTime);
-}
-
-
