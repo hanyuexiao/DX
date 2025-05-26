@@ -48,12 +48,15 @@ HWND CGraphic::InitWindow(pMainWndProc proc,WORD width,WORD height,TString titel
 	return m_hMainWnd;
 }
 
-void CGraphic::InitDX(HWND hwnd)
+bool CGraphic::InitDX(HWND hwnd)
 {
 	m_hMainWnd = hwnd;
 
 	m_pD3D = Direct3DCreate9(D3D_SDK_VERSION);
-
+    if(!m_pD3D)
+        {
+            return false;
+        }
 
 	//默认显卡
 	//使用显卡的加速功能
@@ -70,7 +73,7 @@ void CGraphic::InitDX(HWND hwnd)
 	m_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, m_hMainWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &d3dpp, &m_pDevice);
 
 	if (!m_pDevice)
-		return;
+		return false;
 	////比较深度，进行测试（相同的坐标，深度值小的通过测试，则绘制出来）
 	//m_pDevice->SetRenderState(D3DRS_ZENABLE, true);//激活深度测试
 	//m_pDevice->SetRenderState(D3DRS_ZFUNC, D3DCMP_LESS);//小于通过测试
@@ -80,7 +83,7 @@ void CGraphic::InitDX(HWND hwnd)
 	D3DXCreateLine(m_pDevice, &m_pLine);
 
 	D3DXCreateFont(m_pDevice, 50,50, 0, 0, 0, DEFAULT_CHARSET, 0, 0, 0, _T("宋体"), &m_pFont);
-
+    return true;
 }
 
 HRESULT CGraphic::LoadTex(LPCTSTR fileName, MyImageInfo& info,DWORD color)

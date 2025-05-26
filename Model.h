@@ -15,7 +15,7 @@ struct FBXVertex {
 
 class Model : public GameObject {
 public:
-    Model();
+    Model(const std::string& name);
     virtual ~Model();
 
     bool LoadXModelFromFile(const std::string& modelFilePath);

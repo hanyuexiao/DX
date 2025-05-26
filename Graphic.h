@@ -22,7 +22,7 @@ class CGraphic :
 
 public:
 	HWND InitWindow(pMainWndProc proc, WORD width=800, WORD height=600, string titelName=_T("Game"), string className=_T("MyClass"));
-	void InitDX(HWND hwnd);
+	bool InitDX(HWND hwnd);
 	HRESULT LoadTex(LPCTSTR fileName, MyImageInfo& info,DWORD color=0xff000000);
 	void BeginDraw();
 	void EndDraw();

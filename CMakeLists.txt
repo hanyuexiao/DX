@@ -43,7 +43,7 @@ target_include_directories(DX PRIVATE
 # 注意：vcpkg 安装的库通常不需要手动指定链接目录，CMake 会通过工具链文件找到它们。
 # 这里保留你原有的 DX 库目录设置。
 target_link_directories(DX PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/DX_function/DX/Lib/x86"      # DX 库文件目录 (假设是 x86)
+        "${CMAKE_CURRENT_SOURCE_DIR}/DX_function/DX/Lib"      # DX 库文件目录 (假设是 x86)
 )
 
 # --- 链接库 ---
@@ -62,8 +62,8 @@ target_compile_definitions(DX PRIVATE
         _HAS_STD_BYTE=0
         D3D_DISABLE_9EX
         # 如果 Graphic.cpp 或 main.cpp 需要 Unicode，取消下面这行的注释
-        # UNICODE
-        # _UNICODE
+#         UNICODE
+#         _UNICODE
 )
 
 # --- 链接器标志 ---

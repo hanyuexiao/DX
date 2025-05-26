@@ -86,15 +86,15 @@ INT _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, in
     // ======== 修改为你实际的FBX文件路径 ========
     // 建议将模型文件放在可执行文件目录下的 "Assets" 文件夹中
     // 例如: "Assets/your_character.fbx" 或 "Assets/scene.fbx"
-    const char* fbxModelPath = "Assets/miku_v2.fbx"; // <--- 在这里修改你的FBX文件路径!
+    const char* fbxModelPath = "C:/Users/admin/CLionProjects/DX/cmake-build-release/Assets/shigeju.fbx"; // <--- 在这里修改你的FBX文件路径!
     // 你也可以使用你上传的 "つかさ式まちたん - 副本.txt" 文件，但需要将其重命名为 .fbx 后缀
     // const char* fbxModelPath = "Assets/tsukasa_machitan.fbx";
 
     if (g_pFbxModel->LoadFBXModelFromFile(fbxModelPath)) { // 或者使用 LoadGenericModel
         // FBX 模型加载成功，设置其初始变换
         g_pFbxModel->transform.SetPosition(0.0f, -20.0f, 0.0f); // 调整Y轴，使其底部接近原点
-        g_pFbxModel->transform.SetScale(0.1f, 0.1f, 0.1f);    // FBX模型的大小各不相同，你可能需要调整这个缩放值
-        // g_pFbxModel->transform.SetRotationEuler(0, D3DXToRadian(180.0f), 0); // 例如，旋转180度使其面向摄像机
+        g_pFbxModel->transform.SetScale(1.f, 1.f, 1.f);    // FBX模型的大小各不相同，你可能需要调整这个缩放值
+         g_pFbxModel->transform.SetRotationEuler(0, D3DXToRadian(90.0f), 0); // 例如，旋转180度使其面向摄像机
     }
     else {
         std::wstring errorMsg = L"错误：无法加载 FBX 模型！\n路径: ";
@@ -111,7 +111,7 @@ INT _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, in
             errorMsg += L"[路径转换失败]";
         }
         errorMsg += L"\n请检查文件路径和文件是否存在，以及Assimp库是否正确配置。";
-        MessageBox(hwnd, errorMsg.c_str(), _T("模型加载失败"), MB_OK | MB_ICONERROR);
+        MessageBoxW(NULL, errorMsg.c_str(), L"错误", MB_ICONERROR | MB_OK);
     }
 
 
