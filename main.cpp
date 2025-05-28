@@ -32,12 +32,12 @@ LRESULT EventProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 float moveSpeed = 1.5f;
                 float rotateSpeed = 0.03f; // 旋转速度 (弧度)
 
-                if (wParam == 'A') { g_pMainCamera->Strafe(-moveSpeed); }
-                if (wParam == 'D') { g_pMainCamera->Strafe(moveSpeed); }
-                if (wParam == 'W') { g_pMainCamera->MoveForward(moveSpeed); }
-                if (wParam == 'S') { g_pMainCamera->MoveForward(-moveSpeed); }
-                if (wParam == 'Q') { g_pMainCamera->Fly(moveSpeed); }
-                if (wParam == 'E') { g_pMainCamera->Fly(-moveSpeed); }
+//                if (wParam == 'A') { g_pMainCamera->Strafe(-moveSpeed); }
+//                if (wParam == 'D') { g_pMainCamera->Strafe(moveSpeed); }
+//                if (wParam == 'W') { g_pMainCamera->MoveForward(moveSpeed); }
+//                if (wParam == 'S') { g_pMainCamera->MoveForward(-moveSpeed); }
+//                if (wParam == 'Q') { g_pMainCamera->Fly(moveSpeed); }
+//                if (wParam == 'E') { g_pMainCamera->Fly(-moveSpeed); }
 
                 // <<-- 新增：使用箭头键控制相机旋转 (简单示例)
                 if (wParam == VK_LEFT) { g_pMainCamera->RotateYaw(-rotateSpeed); }

@@ -24,7 +24,11 @@ Player:: Player(const std::string& name) :
         m_filePath(""),
         m_pMesh(nullptr),
         m_dwFBXVertexFVF(D3DFVF_FBXVERTEX),
-        m_dwNumMaterials(0) {
+        m_dwNumMaterials(0),
+        m_moveSpeed(0.0f),
+        m_rotationSpeed(0.0f),
+        isActive(true)
+        {
     m_vSubMeshes.clear();
     m_vMaterials.clear();
     m_vTextures.clear();
@@ -371,4 +375,81 @@ void  Player::Render(LPDIRECT3DDEVICE9 pd3dDevice) {
             }
         }
     }
+}
+
+void Player::MoveForward(float deltaTime) {
+    D3DXVECTOR3 forward = transform.GetForward();
+    transform.position += forward * deltaTime * m_moveSpeed;
+    isActive = true;
+}
+
+void Player::MoveBackward(float deltaTime) {
+    D3DXVECTOR3 forward = transform.GetForward();
+    transform.position -= forward * deltaTime * m_moveSpeed;
+    isActive = true;
+}
+
+void Player::StrafeLeft(float deltaTime) {
+    D3DXVECTOR3 right = transform.GetRight();
+    transform.position -= right * deltaTime * m_moveSpeed;
+    isActive = true;
+}
+
+void Player::StrafeRight(float deltaTime) {
+    D3DXVECTOR3 right = transform.GetRight();
+    transform.position += right * deltaTime * m_moveSpeed;
+    isActive = true;
+}
+
+void Player::RotateLeft(float deltaTime) {
+    D3DXVECTOR3 up = transform.GetUp();
+
+    float angle = deltaTime * m_rotationSpeed;
+
+    transform.RotateAxis(up, angle);
+    isActive = true;
+}
+
+void Player::RotateRight(float deltaTime) {
+    D3DXVECTOR3 up = transform.GetUp();
+
+    float angle = deltaTime * m_rotationSpeed;
+
+    transform.RotateAxis(up, -angle);
+    isActive = true;
+}
+
+int Player::GetHealth() const {
+    return m_health;
+}
+
+void Player::HandleInput(float deltaTime) {
+    // 使用 GetAsyncKeyState (Windows特定) 或其他跨平台的输入库
+    if (GetAsyncKeyState(VK_UP) & 0x8000 || GetAsyncKeyState('W') & 0x8000) {
+        MoveForward(deltaTime);
+    }
+    if (GetAsyncKeyState(VK_DOWN) & 0x8000 || GetAsyncKeyState('S') & 0x8000) {
+        MoveBackward(deltaTime);
+    }
+    if (GetAsyncKeyState(VK_LEFT) & 0x8000 || GetAsyncKeyState('A') & 0x8000) { // 通常A/D用于平移
+        StrafeLeft(deltaTime); // 或者 RotateLeft(deltaTime) 如果你希望A/D是旋转
+    }
+    if (GetAsyncKeyState(VK_RIGHT) & 0x8000 || GetAsyncKeyState('D') & 0x8000) { // 通常A/D用于平移
+        StrafeRight(deltaTime); // 或者 RotateRight(deltaTime)
+    }
+    // 示例：使用Q/E进行旋转
+    if (GetAsyncKeyState('Q') & 0x8000) {
+        RotateLeft(deltaTime);
+    }
+    if (GetAsyncKeyState('E') & 0x8000) {
+        RotateRight(deltaTime);
+    }
+    // ... 其他按键处理，如跳跃、攻击等 ...
+}
+
+void Player::Update(float deltaTime)  {
+    if(!isActive) {
+        return;
+    }
+    HandleInput(deltaTime);
 }
