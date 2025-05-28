@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <locale>
 #include <codecvt>
+#include "d3dx9math.h"
 
 using namespace std;
 #pragma once
@@ -34,6 +35,20 @@ enum DATATYPE
     DATATYPE_MONSTERS,
     DATATYPE_TOOLS,
     DATATYPE_MAP,
+};
+
+// FBX 加载时使用的顶点结构体
+// 确保这个结构与 Model.cpp 中定义的 D3DFVF_FBXVERTEX 匹配
+struct FBXVertex {
+    D3DXVECTOR3 position;
+    D3DXVECTOR3 normal;
+    D3DXVECTOR2 texcoord;
+};
+
+enum class ModelType {
+    NONE,
+    X_MODEL,
+    FBX_MODEL
 };
 
 #ifdef _UNICODE

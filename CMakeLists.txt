@@ -27,6 +27,8 @@ add_executable(DX WIN32
         Model.cpp
         # Model.h # 头文件不在这里列出
         Scene.cpp
+        CPlayer.cpp
+        CPlayer.h
         # Scene.h # 头文件不在这里列出
 )
 

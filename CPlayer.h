@@ -1,16 +1,20 @@
-#pragma once
+//
+// Created by admin on 2025/5/27.
+//
+
+#ifndef DX_CPLAYER_H
+#define DX_CPLAYER_H
+
 #include "CGameObject.h" // 你的游戏对象基类
 #include "Graphic.h"     // 包含 CGraphic 和 MyImageInfo 定义
 #include <vector>
 #include <string>
 #include <d3dx9.h>
 
-
-
-class Model : public GameObject {
+class Player:public GameObject {
 public:
-    Model(const std::string& name);
-    virtual ~Model();
+    Player(const std::string& name);
+    virtual ~ Player();
 
     bool LoadXModelFromFile(const std::string& modelFilePath);
     bool LoadFBXModelFromFile(const std::string& modelFilePath);
@@ -42,4 +46,8 @@ private:
     std::vector<D3DMATERIAL9> m_vMaterials;
     // 修改 m_vTextures 以存储 CGraphic::MyImageInfo
     std::vector<MyImageInfo> m_vTextures;
-};
+    };
+
+// Player
+
+#endif //DX_CPLAYER_H
