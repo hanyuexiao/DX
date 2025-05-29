@@ -63,7 +63,7 @@ public:
      * @param roll 翻滚角 (绕Z轴旋转)，弧度制。
      */
     void SetRotationEuler(float yaw, float pitch, float roll);
-
+    D3DXVECTOR3 GetEulerAngles() const;
     /**
      * @brief 设置对象的旋转（使用四元数）。
      * 传入的四元数将被归一化后存储。

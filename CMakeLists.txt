@@ -29,6 +29,10 @@ add_executable(DX WIN32
         Scene.cpp
         CPlayer.cpp
         CPlayer.h
+        CTerrain.cpp
+        CTerrain.h
+        CFrustum.cpp
+        CFrustum.h
         # Scene.h # 头文件不在这里列出
 )
 

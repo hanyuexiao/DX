@@ -170,4 +170,29 @@ const D3DXMATRIX &Camera::GetProjectionMatrix() const {
 // = default 表示使用编译器生成的默认析构函数
 // 因为 Camera 类没有直接管理需要手动释放的资源 (例如裸指针)，
 // 并且基类 GameObject 的析构函数是虚函数，所以默认析构函数通常是足够的。
+D3DXVECTOR3 Transform::GetEulerAngles() const {
+    D3DXMATRIX matRotation;
+    D3DXMatrixRotationQuaternion(&matRotation, &orientation);
+
+    float yaw, pitch, roll;
+
+    // 提取俯仰角 (Pitch) - 绕X轴
+    // asin的值域是 [-PI/2, PI/2]，对应俯仰角的典型范围
+    pitch = asinf(-matRotation._32); // _32 是 sin(pitch) (某些矩阵约定下是 -sin(pitch))
+
+    // 根据俯仰角是否接近 +/- 90度 (万向节死锁情况) 来分别处理偏航角和翻滚角
+    float cosPitch = cosf(pitch);
+    if (fabs(cosPitch) > 0.0001f) { // 避免除以零
+        // 偏航角 (Yaw) - 绕Y轴
+        yaw = atan2f(matRotation._31 / cosPitch, matRotation._33 / cosPitch);
+        // 翻滚角 (Roll) - 绕Z轴
+        roll = atan2f(matRotation._12 / cosPitch, matRotation._22 / cosPitch);
+    } else {
+        // 万向节死锁: 俯仰角为 +/- 90度
+        // 此时，可以将所有旋转分配给偏航角（或翻滚角），并将另一个设为0
+        yaw = atan2f(-matRotation._13, matRotation._11);
+        roll = 0.0f;
+    }
+    return D3DXVECTOR3(pitch, yaw, roll);
+}
 Camera::~Camera() = default;
