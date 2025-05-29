@@ -5,11 +5,20 @@
 #ifndef DX_CFRUSTUM_H
 #define DX_CFRUSTUM_H
 
-#include "CGameObject.h" // åŒ…å«åŸºç±» GameObject çš„å®šä¹‰
-#include "Graphic.h"     // ä¸ºäº† MyImageInfo å’Œ ModelType (å‡è®¾å®šä¹‰åœ¨è¿™é‡Œæˆ– common.h)
+#include "CGameObject.h" // °üº¬»ùÀà GameObject µÄ¶¨Òå
+#include "Graphic.h"     // ÎªÁË MyImageInfo ºÍ ModelType (¼ÙÉè¶¨ÒåÔÚÕâÀï»ò common.h)
+
+// ×Ô¶¨ÒåÊÓ×¶Ìå¶¥µã¸ñÊ½(Î»ÖÃ+ÑÕÉ«)
+struct FVF_FrustumVertex {
+    D3DXVECTOR3 position;
+    D3DCOLOR    color;
+};
+
+#define D3DFVF_FRUSTUMVERTEX (D3DFVF_XYZ | D3DFVF_DIFFUSE)
 
 class CFrustum {
 private:
+
     D3DXVECTOR3 m_vecClip[8] ={
             D3DXVECTOR3 (-1.0f,1.0f,0.0f),
             D3DXVECTOR3 (1.0f,1.0f,0.0f),
@@ -26,6 +35,10 @@ private:
 public:
     void UpdateFrustum(D3DXMATRIX matView, D3DXMATRIX matProj);
     const D3DXVECTOR3* GetWorldCorners() const {return m_vecWorldPos;}
+
+    void SetupFrustumBuffers(LPDIRECT3DDEVICE9 pd3dDevice, CFrustum* pFrustum,LPDIRECT3DVERTEXBUFFER9 g_pFrustumVB);
+
+    void DrawFrozenFrustumFaces(LPDIRECT3DDEVICE9 pd3dDevice,bool  g_bDrawFrozenFrustum,LPDIRECT3DVERTEXBUFFER9 g_pFrustumVB);
 };
 
 

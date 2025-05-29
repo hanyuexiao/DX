@@ -30,7 +30,7 @@ public:
     virtual void Update(float deltaTime) override;
     void Render(LPDIRECT3DDEVICE9 pd3dDevice); // 注意：基类Render可能是无参的，这里是隐藏
 
-    void HandleInput(float deltaTime); // 处理键盘输入
+//    void HandleInput(float deltaTime); // 处理键盘输入
 
     // 鼠标控制方法
     void StartMouseRotation(int x, int y);

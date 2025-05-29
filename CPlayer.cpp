@@ -515,30 +515,30 @@ void Player::RotateRight(float deltaTime) { // 绕Y轴向右旋转 (偏航角增大)
 }
 
 
-void Player::HandleInput(float deltaTime) {
-    if (!isActive) return;
-
-    // 键盘移动
-    if (GetAsyncKeyState('W') & 0x8000) MoveForward(deltaTime);
-    if (GetAsyncKeyState('S') & 0x8000) MoveBackward(deltaTime);
-    if (GetAsyncKeyState('A') & 0x8000) StrafeLeft(deltaTime);
-    if (GetAsyncKeyState('D') & 0x8000) StrafeRight(deltaTime);
-
-    // 键盘旋转 (如果不想和鼠标旋转同时生效，可以在 m_isMouseRotating 为 false 时才执行)
-    if (!m_isMouseRotating) {
-        if (GetAsyncKeyState('Q') & 0x8000) RotateLeft(deltaTime);
-        if (GetAsyncKeyState('E') & 0x8000) RotateRight(deltaTime);
-    }
-    // 向上/下移动 (如果需要，例如飞行)
-    // if (GetAsyncKeyState(VK_SPACE) & 0x8000) transform.position.y += m_moveSpeed * deltaTime;
-    // if (GetAsyncKeyState(VK_CONTROL) & 0x8000) transform.position.y -= m_moveSpeed * deltaTime;
-}
+//void Player::HandleInput(float deltaTime) {
+//    if (!isActive) return;
+//
+//    // 键盘移动
+//    if (GetAsyncKeyState('W') & 0x8000) MoveForward(deltaTime);
+//    if (GetAsyncKeyState('S') & 0x8000) MoveBackward(deltaTime);
+//    if (GetAsyncKeyState('A') & 0x8000) StrafeLeft(deltaTime);
+//    if (GetAsyncKeyState('D') & 0x8000) StrafeRight(deltaTime);
+//
+//    // 键盘旋转 (如果不想和鼠标旋转同时生效，可以在 m_isMouseRotating 为 false 时才执行)
+//    if (!m_isMouseRotating) {
+//        if (GetAsyncKeyState('Q') & 0x8000) RotateLeft(deltaTime);
+//        if (GetAsyncKeyState('E') & 0x8000) RotateRight(deltaTime);
+//    }
+//    // 向上/下移动 (如果需要，例如飞行)
+//    // if (GetAsyncKeyState(VK_SPACE) & 0x8000) transform.position.y += m_moveSpeed * deltaTime;
+//    // if (GetAsyncKeyState(VK_CONTROL) & 0x8000) transform.position.y -= m_moveSpeed * deltaTime;
+//}
 
 void Player::Update(float deltaTime) {
     GameObject::Update(deltaTime); // 调用基类的Update (如果它有逻辑)
     if (!isActive) {
         return;
     }
-    HandleInput(deltaTime); // 处理键盘输入
+//    HandleInput(deltaTime); // 处理键盘输入
     // 鼠标旋转的实际调用在 EventProc 中的 WM_MOUSEMOVE 消息处理中
 }
