@@ -36,9 +36,6 @@ public:
     void UpdateFrustum(D3DXMATRIX matView, D3DXMATRIX matProj);
     const D3DXVECTOR3* GetWorldCorners() const {return m_vecWorldPos;}
 
-    void SetupFrustumBuffers(LPDIRECT3DDEVICE9 pd3dDevice, CFrustum* pFrustum,LPDIRECT3DVERTEXBUFFER9 g_pFrustumVB);
-
-    void DrawFrozenFrustumFaces(LPDIRECT3DDEVICE9 pd3dDevice,bool  g_bDrawFrozenFrustum,LPDIRECT3DVERTEXBUFFER9 g_pFrustumVB);
 };
 
 
