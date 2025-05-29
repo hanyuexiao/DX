@@ -5,8 +5,8 @@
 #ifndef DX_CFRUSTUM_H
 #define DX_CFRUSTUM_H
 
-#include "CGameObject.h" // °üº¬»ùÀà GameObject µÄ¶¨Òå
-#include "Graphic.h"     // ÎªÁË MyImageInfo ºÍ ModelType (¼ÙÉè¶¨ÒåÔÚÕâÀï»ò common.h)
+#include "CGameObject.h" // åŒ…å«åŸºç±» GameObject çš„å®šä¹‰
+#include "Graphic.h"     // ä¸ºäº† MyImageInfo å’Œ ModelType (å‡è®¾å®šä¹‰åœ¨è¿™é‡Œæˆ– common.h)
 
 class CFrustum {
 private:
@@ -25,6 +25,7 @@ private:
 
 public:
     void UpdateFrustum(D3DXMATRIX matView, D3DXMATRIX matProj);
+    const D3DXVECTOR3* GetWorldCorners() const {return m_vecWorldPos;}
 };
 
 
