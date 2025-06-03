@@ -149,6 +149,10 @@ void SetupFrustumBuffers(LPDIRECT3DDEVICE9 pd3dDevice) {
     // 定义颜色(半透明)
     D3DCOLOR blueColor = D3DCOLOR_ARGB(128, 0, 0, 255);   // Alpha, R, G, B
     D3DCOLOR greenColor = D3DCOLOR_ARGB(128, 0, 255, 0);
+    D3DCOLOR redColor = D3DCOLOR_ARGB(128, 255, 0, 0);
+    D3DCOLOR yellowColor = D3DCOLOR_ARGB(128, 255, 255, 0);
+    D3DCOLOR magentaColor = D3DCOLOR_ARGB(128, 255, 0, 255);
+    D3DCOLOR cyanColor = D3DCOLOR_ARGB(128, 0, 255, 255);
 
     std::vector<FVF_FrustumVertex> vertices;
     vertices.reserve(36); // 6个面 * 每个面2个三角形 * 每个三角形3个顶点
@@ -167,16 +171,16 @@ void SetupFrustumBuffers(LPDIRECT3DDEVICE9 pd3dDevice) {
     vertices.push_back({ corners[4], blueColor }); vertices.push_back({ corners[6], blueColor }); vertices.push_back({ corners[5], blueColor });
 
     // 左面(绿色) - 三角形: (4,0,3), (4,3,7)
-    vertices.push_back({ corners[4], greenColor }); vertices.push_back({ corners[0], greenColor }); vertices.push_back({ corners[3], greenColor });
-    vertices.push_back({ corners[4], greenColor }); vertices.push_back({ corners[3], greenColor }); vertices.push_back({ corners[7], greenColor });
+    vertices.push_back({ corners[4], greenColor }); vertices.push_back({ corners[0], cyanColor }); vertices.push_back({ corners[3], greenColor });
+    vertices.push_back({ corners[4], greenColor }); vertices.push_back({ corners[3], cyanColor }); vertices.push_back({ corners[7], greenColor });
 
     // 右面(绿色) - 三角形: (1,5,6), (1,6,2)
-    vertices.push_back({ corners[1], greenColor }); vertices.push_back({ corners[5], greenColor }); vertices.push_back({ corners[6], greenColor });
-    vertices.push_back({ corners[1], greenColor }); vertices.push_back({ corners[6], greenColor }); vertices.push_back({ corners[2], greenColor });
+    vertices.push_back({ corners[1], greenColor }); vertices.push_back({ corners[5],  yellowColor }); vertices.push_back({ corners[6], greenColor });
+    vertices.push_back({ corners[1], greenColor }); vertices.push_back({ corners[6],  yellowColor }); vertices.push_back({ corners[2], greenColor });
 
     // 上面(绿色) - 三角形: (3,2,6), (3,6,7)
-    vertices.push_back({ corners[3], greenColor }); vertices.push_back({ corners[2], greenColor }); vertices.push_back({ corners[6], greenColor });
-    vertices.push_back({ corners[3], greenColor }); vertices.push_back({ corners[6], greenColor }); vertices.push_back({ corners[7], greenColor });
+    vertices.push_back({ corners[3], greenColor }); vertices.push_back({ corners[2], redColor }); vertices.push_back({ corners[6], greenColor });
+    vertices.push_back({ corners[3], greenColor }); vertices.push_back({ corners[6], redColor }); vertices.push_back({ corners[7], greenColor });
 
     // 下面(绿色) - 三角形: (4,5,1), (4,1,0)
     vertices.push_back({ corners[4], greenColor }); vertices.push_back({ corners[5], greenColor }); vertices.push_back({ corners[1], greenColor });
@@ -203,59 +207,127 @@ void SetupFrustumBuffers(LPDIRECT3DDEVICE9 pd3dDevice) {
 }
 
 void DrawFrozenFrustumFaces(LPDIRECT3DDEVICE9 pd3dDevice) {
+    // 如果不需要绘制或顶点缓冲无效，则直接返回
     if (!pd3dDevice || !g_bDrawFrozenFrustum || !g_pFrustumVB) {
         return;
     }
 
-//    // 保存旧的渲染状态
-    DWORD oldAlphaBlendEnable, oldSrcBlend, oldDestBlend, oldCullMode, oldLighting, oldZWriteEnable;
+    // --- 1. 保存当前渲染状态 ---
+    DWORD oldAlphaBlendEnable, oldSrcBlend, oldDestBlend;
+    DWORD oldCullMode, oldLighting, oldZWriteEnable, oldZEnable;
     pd3dDevice->GetRenderState(D3DRS_ALPHABLENDENABLE, &oldAlphaBlendEnable);
     pd3dDevice->GetRenderState(D3DRS_SRCBLEND, &oldSrcBlend);
     pd3dDevice->GetRenderState(D3DRS_DESTBLEND, &oldDestBlend);
     pd3dDevice->GetRenderState(D3DRS_CULLMODE, &oldCullMode);
     pd3dDevice->GetRenderState(D3DRS_LIGHTING, &oldLighting);
     pd3dDevice->GetRenderState(D3DRS_ZWRITEENABLE, &oldZWriteEnable);
+    pd3dDevice->GetRenderState(D3DRS_ZENABLE, &oldZEnable); // 也保存Z缓冲启用状态
+
+    // 保存纹理阶段状态 (以纹理阶段0为例，通常模型渲染会用到)
+    // 如果你的模型可能使用更多纹理阶段，你也需要保存和恢复它们
+    DWORD oldTSS_ColorOp_0, oldTSS_ColorArg1_0, oldTSS_ColorArg2_0;
+    DWORD oldTSS_AlphaOp_0, oldTSS_AlphaArg1_0, oldTSS_AlphaArg2_0;
+    DWORD oldTSS_ResultArg_0; // 有些驱动或旧代码可能会用到 D3DTSS_RESULTARG
+
+    pd3dDevice->GetTextureStageState(0, D3DTSS_COLOROP, &oldTSS_ColorOp_0);
+    pd3dDevice->GetTextureStageState(0, D3DTSS_COLORARG1, &oldTSS_ColorArg1_0);
+    pd3dDevice->GetTextureStageState(0, D3DTSS_COLORARG2, &oldTSS_ColorArg2_0);
+    pd3dDevice->GetTextureStageState(0, D3DTSS_ALPHAOP, &oldTSS_AlphaOp_0);
+    pd3dDevice->GetTextureStageState(0, D3DTSS_ALPHAARG1, &oldTSS_AlphaArg1_0);
+    pd3dDevice->GetTextureStageState(0, D3DTSS_ALPHAARG2, &oldTSS_AlphaArg2_0);
+    // pd3dDevice->GetTextureStageState(0, D3DTSS_RESULTARG, &oldTSS_ResultArg_0); // 如果需要
+
+    // 保存当前FVF，因为我们要改变它
+    DWORD oldFVF;
+    pd3dDevice->GetFVF(&oldFVF);
 
 
-    // 设置透明、无光照的视锥体渲染状态
+    // --- 2. 设置用于绘制视锥体的渲染状态 ---
+    // 启用Alpha混合以实现半透明
     pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-    pd3dDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-    pd3dDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-    pd3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE); // 视锥体无光照，使用顶点颜色
-    pd3dDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE); // 为透明绘制双面，或确保环绕顺序正确
-    // 如果是D3DCULL_CCW或D3DCULL_CW，确保顶点环绕顺序正确
-    // 对于稳健的透明效果，可能需要深度排序或两遍渲染
-    // D3DCULL_NONE目前更简单
-    pd3dDevice->SetRenderState(D3DRS_ZWRITEENABLE, FALSE); // 禁用Z写入，使透明物体不会完全遮挡后面的物体
-    // 或者如果它们在非透明物体之后绘制，可以保留TRUE或设为FALSE
+    pd3dDevice->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);   // 源混合因子: 源Alpha
+    pd3dDevice->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA); // 目标混合因子: 1 - 源Alpha
 
-// 设置漫反射颜色的纹理阶段状态(如果使用纹理会更复杂)
+    // 关闭光照，因为视锥体颜色由顶点颜色定义
+    pd3dDevice->SetRenderState(D3DRS_LIGHTING, FALSE);
+
+    // 剔除模式：通常对于透明物体，会设置为D3DCULL_NONE来绘制双面，
+    // 或者确保顶点顺序正确后使用D3DCULL_CCW（逆时针为正面）或D3DCULL_CW（顺时针为正面）。
+    // 如果顶点顺序定义了明确的内外，可以只绘制正面。
+    // 为了简单起见和确保能看到，先设置为D3DCULL_NONE。
+    pd3dDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+    // Z缓冲写入：对于透明物体，通常在绘制完所有不透明物体后，
+    // 并且在绘制透明物体时禁用Z写入（设置为FALSE），以避免透明物体遮挡其后的其他透明物体。
+    // 但如果只是一个孤立的视锥体，或者不关心复杂的透明排序，可以保持TRUE或设置为FALSE。
+    // 设置为FALSE可以避免它完全写入深度缓冲，可能有助于解决一些透明物体排序问题。
+    pd3dDevice->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+    // 确保Z测试仍然开启，以便视锥体能被场景中的不透明物体正确遮挡
+    pd3dDevice->SetRenderState(D3DRS_ZENABLE, D3DZB_TRUE);
+
+
+    // 设置纹理阶段状态，以使用顶点的漫反射颜色 (D3DTA_DIFFUSE)
+    // 视锥体不使用纹理，所以颜色直接来自顶点
     pd3dDevice->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
     pd3dDevice->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
+    // 对于Alpha也一样
     pd3dDevice->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
     pd3dDevice->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
 
+    // 禁用后续可能被模型使用的纹理阶段，防止干扰
+    // 如果你的模型只用到了纹理阶段0，那么禁用阶段1就足够了
+    pd3dDevice->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+    pd3dDevice->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+    // 可以根据需要禁用更多阶段
 
-    // 设置世界矩阵为单位矩阵，因为顶点已经在世界空间
+
+    // --- 3. 设置变换、FVF和顶点源，并绘制 ---
+    // 设置世界变换矩阵为单位矩阵，因为顶点已经是世界坐标
     D3DXMATRIX matWorld;
     D3DXMatrixIdentity(&matWorld);
     pd3dDevice->SetTransform(D3DTS_WORLD, &matWorld);
 
-    // 设置FVF和流源
+    // 设置顶点格式 (FVF)
     pd3dDevice->SetFVF(D3DFVF_FRUSTUMVERTEX);
+
+    // 设置顶点流来源
     pd3dDevice->SetStreamSource(0, g_pFrustumVB, 0, sizeof(FVF_FrustumVertex));
 
-    // 绘制视锥体面(12个三角形)
-    pd3dDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 12); // 6个面 * 每个面2个三角形 = 12个三角形
+    // 绘制视锥体的面 (假设有12个三角形，即6个四边形面)
+    // 每个四边形面由2个三角形组成，共 6 * 2 = 12 个三角形
+    // 每个三角形有3个顶点，所以总共需要 12 * 3 = 36 个顶点在VB中
+    pd3dDevice->DrawPrimitive(D3DPT_TRIANGLELIST, 0, 12); // 12个三角形
 
-    // 恢复旧的渲染状态
+
+    // --- 4. 恢复之前保存的渲染状态 ---
     pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, oldAlphaBlendEnable);
     pd3dDevice->SetRenderState(D3DRS_SRCBLEND, oldSrcBlend);
     pd3dDevice->SetRenderState(D3DRS_DESTBLEND, oldDestBlend);
     pd3dDevice->SetRenderState(D3DRS_CULLMODE, oldCullMode);
     pd3dDevice->SetRenderState(D3DRS_LIGHTING, oldLighting);
     pd3dDevice->SetRenderState(D3DRS_ZWRITEENABLE, oldZWriteEnable);
+    pd3dDevice->SetRenderState(D3DRS_ZENABLE, oldZEnable); // 恢复Z缓冲启用状态
+
+    // 恢复纹理阶段状态
+    pd3dDevice->SetTextureStageState(0, D3DTSS_COLOROP, oldTSS_ColorOp_0);
+    pd3dDevice->SetTextureStageState(0, D3DTSS_COLORARG1, oldTSS_ColorArg1_0);
+    pd3dDevice->SetTextureStageState(0, D3DTSS_COLORARG2, oldTSS_ColorArg2_0);
+    pd3dDevice->SetTextureStageState(0, D3DTSS_ALPHAOP, oldTSS_AlphaOp_0);
+    pd3dDevice->SetTextureStageState(0, D3DTSS_ALPHAARG1, oldTSS_AlphaArg1_0);
+    pd3dDevice->SetTextureStageState(0, D3DTSS_ALPHAARG2, oldTSS_AlphaArg2_0);
+    // pd3dDevice->SetTextureStageState(0, D3DTSS_RESULTARG, oldTSS_ResultArg_0); // 如果之前保存了
+
+    // 如果之前禁用了纹理阶段1，并且你知道模型渲染时阶段1应该是什么状态，则恢复它
+    // 通常，如果模型的渲染函数会自己设置所有需要的纹理阶段，这里可能不需要额外恢复阶段1。
+    // 但为了更安全，如果知道模型默认会使用纹理阶段1（例如进行光照贴图），则应恢复其默认状态，
+    // 否则，保持禁用或恢复到一个已知的“安全”状态。
+    // 假设模型渲染会自己处理后续阶段，这里就不再恢复阶段1的状态，因为我们之前是强制禁用了它。
+    // 或者，如果模型渲染依赖于阶段1被设置为某个特定值（如D3DTOP_DISABLE），那么恢复到那个值。
+
+    // 恢复FVF
+    pd3dDevice->SetFVF(oldFVF);
 }
+
 
 
 // 主函数

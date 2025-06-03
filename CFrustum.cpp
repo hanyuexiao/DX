@@ -9,9 +9,6 @@ void CFrustum::UpdateFrustum(D3DXMATRIX matView, D3DXMATRIX matProj) {
     D3DXMATRIX matViewProj;
     D3DXMatrixMultiply(&matViewProj, &matView, &matProj);
     D3DXMatrixInverse(&InvViewProj, NULL, &matViewProj);
-
-    for (int i = 0; i < 8; ++i) {
-        D3DXVec3TransformCoord(&m_vecWorldPos[i], &m_vecClip[i], &InvViewProj);
-    }
+    D3DXVec3TransformCoordArray(m_vecWorldPos, sizeof(D3DXVECTOR3),m_vecClip, sizeof(D3DXVECTOR3),&InvViewProj,8);
 }
 

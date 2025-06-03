@@ -13,14 +13,23 @@ struct MYCUSTOMVERTEX
 {
     D3DXVECTOR3 position;  //位置
     DWORD color; //颜色
+    D3DXVECTOR2 texCoord; //纹理坐标
 };
 
-#define MYCUSTOMVERTEX (D3DFVF_XYZ|D3DFVF_DIFFUSE) //自定义顶点格式（位置，颜色）
+#define MYCUSTOMVERTEX_FVF (D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1) //自定义顶点格式（位置，颜色）
 
 class Terrain : public GameObject{
 public:
     Terrain();
     LPD3DXMESH g_pTerrainMesh;
+    void Render();
+    
+private:
+    MYCUSTOMVERTEX* pVertices;
+    D3DXMATRIX matTerrain;
+    WORD* pIndex;
+    LPDIRECT3DTEXTURE9 g_pTexture;
+    void Init();
 
 
 
