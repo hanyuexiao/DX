@@ -8,7 +8,7 @@ Terrain::Terrain() {
     Init();
 }
 
-void Terrain::Init() {
+bool Terrain::Init() {
     // TODO: 初始化地形
     HRESULT hr = D3DXCreateMeshFVF(2,4,D3DXMESH_MANAGED,MYCUSTOMVERTEX_FVF,CGraphic::GetSingleObjPtr()->m_pDevice,&g_pTerrainMesh); //4个顶点，2个三角形的空间分配出来
     if(SUCCEEDED(hr))
@@ -23,6 +23,7 @@ void Terrain::Init() {
     }
     else{
         MessageBox(NULL,"创建地形失败","错误",MB_OK);
+        return false;
     }
     g_pTerrainMesh->LockVertexBuffer(0,(void**)&pVertices); //获取顶点缓冲区
 
@@ -41,7 +42,8 @@ void Terrain::Init() {
     pIndex[3] = 1; pIndex[4] = 3; pIndex[5] = 2;
 
     //TODO: 填充贴图
-    D3DXCreateTextureFromFile(CGraphic::GetSingleObjPtr()->m_pDevice, "./cmake-build-debug/Assets/Grass2.jpg", &g_pTexture);
+    D3DXCreateTextureFromFile(CGraphic::GetSingleObjPtr()->m_pDevice, "C:\\Users\\admin\\CLionProjects\\DX\\cmake-build-debug\\Assets\\Grass2.jpg", &g_pTexture);
+    return true;
 }
 
 void Terrain::Render() {

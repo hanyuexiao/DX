@@ -128,6 +128,8 @@ public:
      * @return 返回归一化的上方向向量。
      */
     D3DXVECTOR3 GetUp() const;
+
+    D3DXVECTOR3 GetPosition() const { return position; };
 };
 
 #endif //DX_CTRANSFORM_H

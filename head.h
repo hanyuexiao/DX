@@ -7,6 +7,7 @@
 
 #endif //DX_HEAD_H
 
+#define NOMINMAX
 
 #pragma once
 #include <iostream>

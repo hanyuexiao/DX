@@ -23,13 +23,13 @@ public:
     Terrain();
     LPD3DXMESH g_pTerrainMesh;
     void Render();
-    
+   bool Init();
 private:
     MYCUSTOMVERTEX* pVertices;
     D3DXMATRIX matTerrain;
     WORD* pIndex;
     LPDIRECT3DTEXTURE9 g_pTexture;
-    void Init();
+
 
 
 

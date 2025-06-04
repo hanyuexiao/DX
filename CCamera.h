@@ -43,6 +43,7 @@ public:
     // @param name 相机对象的名称，默认为 "Camera"
     explicit Camera(const std::string& name = "Camera");
 
+    void LookAt(const D3DXVECTOR3& vTarget, const D3DXVECTOR3& vWorldUp = D3DXVECTOR3(0.0f, 1.0f, 0.0f));
     // 析构函数
     // override 关键字确保正确覆盖基类的虚析构函数
     ~Camera() override;

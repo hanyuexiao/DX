@@ -166,6 +166,77 @@ const D3DXMATRIX &Camera::GetProjectionMatrix() const {
     return m_matProjection;
 }
 
+// LookAt 方法实现
+// LookAt 方法实现
+void Camera::LookAt(const D3DXVECTOR3& vTarget, const D3DXVECTOR3& vWorldUp) {
+    D3DXVECTOR3 vPosition = this->transform.GetPosition();
+
+    // D3DXMatrixLookAtLH 计算的是视图矩阵。我们需要的是一个能代表“朝向”的世界变换矩阵的旋转部分。
+    // 然后从这个旋转矩阵中提取四元数。
+
+    // 1. 计算新的前方向 (从相机指向目标)
+    D3DXVECTOR3 newForward;
+    D3DXVec3Subtract(&newForward, &vTarget, &vPosition);
+    D3DXVec3Normalize(&newForward, &newForward);
+
+    // 2. 计算新的右方向
+    D3DXVECTOR3 newRight;
+    D3DXVec3Cross(&newRight, &vWorldUp, &newForward); // worldUp X forward
+    D3DXVec3Normalize(&newRight, &newRight);
+    // 处理特殊情况：如果forward和worldUp平行 (例如，直视上方或下方)
+    if (D3DXVec3LengthSq(&newRight) < 0.0001f) {
+        // 目标在正上方或正下方，需要选择一个不同的临时Up向量来计算Right
+        // 例如，如果目标在正上方，forward 接近 (0,1,0)，worldUp 是 (0,1,0)
+        // 叉乘结果会是0。此时可以尝试用世界X轴
+        D3DXVECTOR3 worldXAxis = D3DXVECTOR3(1.0f, 0.0f, 0.0f); // 创建一个具名变量
+        D3DXVec3Cross(&newRight, &worldXAxis, &newForward);
+        D3DXVec3Normalize(&newRight, &newRight);
+    }
+
+
+    // 3. 计算新的上方向
+    D3DXVECTOR3 newUp;
+    D3DXVec3Cross(&newUp, &newForward, &newRight); // forward X right
+    D3DXVec3Normalize(&newUp, &newUp);
+
+    // 4. 构建旋转矩阵
+    // D3DX标准：矩阵的行是基向量 (Right, Up, Forward)
+    // 这是从物体局部空间到世界空间的旋转矩阵
+    D3DXMATRIX matRot;
+    D3DXMatrixIdentity(&matRot);
+    // Row 1 (X-axis of camera's new orientation in world space) = newRight
+    matRot._11 = newRight.x; matRot._12 = newRight.y; matRot._13 = newRight.z;
+    // Row 2 (Y-axis of camera's new orientation in world space) = newUp
+    matRot._21 = newUp.x;    matRot._22 = newUp.y;    matRot._23 = newUp.z;
+    // Row 3 (Z-axis of camera's new orientation in world space) = newForward
+    matRot._31 = newForward.x; matRot._32 = newForward.y; matRot._33 = newForward.z;
+    // 注意：D3DXQuaternionRotationMatrix期望的矩阵是这样的：
+    //   m._11, m._12, m._13,
+    //   m._21, m._22, m._23,
+    //   m._31, m._32, m._33
+    // 实际上，更标准的做法是列向量是新的基向量在旧坐标系（世界）中的表示。
+    // 或者说，这个矩阵的行是旧基向量在新坐标系中的表示。
+    // D3DXMatrixLookAtLH 本身会构建一个视图矩阵，其逆是相机的世界变换。
+    // 我们这里尝试直接从轴构建旋转。
+    // 一个更可靠的方法是使用 D3DXMatrixLookAtLH 获得视图矩阵，然后取其逆，再从逆矩阵中提取四元数。
+    // 但我们也可以直接从正交基构建旋转矩阵。
+    // 矩阵的列是新的局部坐标轴在世界坐标系中的表示。
+    // matRot._11 = newRight.x;    matRot._21 = newRight.y;    matRot._31 = newRight.z;
+    // matRot._12 = newUp.x;       matRot._22 = newUp.y;       matRot._32 = newUp.z;
+    // matRot._13 = newForward.x;  matRot._23 = newForward.y;  matRot._33 = newForward.z;
+    // 这样，当乘以一个局部向量 (1,0,0) 时，会得到 newRight。
+
+    // 5. 从旋转矩阵创建四元数
+    D3DXQUATERNION newOrientation;
+    D3DXQuaternionRotationMatrix(&newOrientation, &matRot); // matRot应该是从局部到世界的旋转
+    D3DXQuaternionNormalize(&newOrientation, &newOrientation); // 确保是单位四元数
+
+    // 6. 设置Transform的旋转
+    this->transform.SetRotation(newOrientation);
+
+    m_bViewMatrixDirty = true;
+}
+
 // Camera 类的析构函数
 // = default 表示使用编译器生成的默认析构函数
 // 因为 Camera 类没有直接管理需要手动释放的资源 (例如裸指针)，
